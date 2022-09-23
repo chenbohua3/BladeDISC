@@ -8,7 +8,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import torch
 from torch_blade.config import Config
 
 try:
@@ -21,6 +21,62 @@ except ImportError as e:
 
 def is_available():
     return _is_available
+
+"""
+%1 = aten::fake_quantize_per_channel_affine(%x, %4, %4, %4, %4, %4)
+      %2 = torch_blade_quantization::placeholder(%1)
+      %3 = aten::t(%2)
+"""
+def _jit_pass_fold_transpose(c_module):
+    # pattern_str = """
+    # graph(%x : Tensor):
+    #   %11 : int = prim::Constant[value=255]()
+    #   return (%11)"""
+    # pattern = torch.parse_ir(pattern_str)
+    # _quantization.fold_transpose(c_module, pattern)
+    patterns = [
+        ("aten::matmul", 1),
+        ("aten::t", 0),
+        ("torch_blade_quantization::placeholder", 0),
+        ("aten::fake_quantize_per_channel_affine", 0),
+        ("prim::Constant", None)
+    ]
+    graph = c_module.forward.graph
+    all_matched = []
+    for n in reversed(graph.node_list()):
+        cur_idx = 0
+        is_match = True
+        matched = []
+        cur_node = n
+        while(cur_idx < len(patterns) or cur_idx is not None):
+            cur_pattern_kind = patterns[cur_idx][0]
+            next_t_idx = patterns[cur_idx][1]
+            if cur_node.kind() == cur_pattern_kind:
+                matched.append(cur_node)
+                cur_idx = cur_idx + 1
+                if next_t_idx is None:
+                    break
+                else:
+                    cur_node = cur_node.input_list()[next_t_idx].node()
+            else:
+                matched = []
+                is_match = False
+                break
+        if is_match:
+            all_matched.append(matched)
+
+    for m in all_matched:
+        constant_node = m[-1]
+        constant = constant_node.t("value")
+        constant_t = torch.t(constant)
+        # new_constant_node = graph.create('prim::Constant')
+        constant_node.t_("value", constant_t)
+        constant_node.output().inferTypeFrom(constant_t)
+
+        aten_t_node = m[1]
+        aten_t_node.output().replaceAllUsesWith(aten_t_node.input())
+        aten_t_node.destroy()
+        s = 1
 
 
 def _jit_pass_add_placeholder_for_fake_quant(c_module):
@@ -44,6 +100,8 @@ def _jit_pass_quantization_preprocess(c_module):
         # of _jit_pass_constant_propagation.
         # https://github.com/pytorch/pytorch/issues/81460
         _jit_pass_add_placeholder_for_fake_quant(c_module)
+        _jit_pass_fold_transpose(c_module)
+        s = 1
 
 
 def _jit_pass_quantization_postprocess(c_module):

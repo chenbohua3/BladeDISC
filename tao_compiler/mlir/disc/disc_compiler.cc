@@ -215,8 +215,8 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
       /*printAfterOnlyOnFailure*/ false, llvm::dbgs(), printingFlags);
 
   pm.addPass(mlir::createInlinerPass());
-
-  // TODO(disc): Lower HLO shape constraints instead of eliding them here.
+//
+//  // TODO(disc): Lower HLO shape constraints instead of eliding them here.
   pm.addNestedPass<FuncOp>(disc_ral::createDiscRemoveShapeConstraintsPass());
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
   pm.addNestedPass<FuncOp>(createCSEPass());
@@ -228,6 +228,7 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
       disc_ral::createDiscLowerQuantizeAndDequantizePass());
 
   bool enable_shape_constraint_ir = useShapeConstraintIR();
+  std::cout << "========Enable shape constraint" << enable_shape_constraint_ir << std::endl;
   if (!enable_shape_constraint_ir) {
     // propagate some known shape information.
     pm.addPass(disc_ral::createDiscShapeSimplifierPass());
@@ -264,7 +265,7 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
     // shape-related optimization
     pm.addPass(disc_ral::createDiscShapeOptimizationPass());
   }
-
+  std::cout << "GPU enabled: " << gpu_enabled << std::endl;
   if (gpu_enabled) {
     pm.addNestedPass<FuncOp>(mhlo::createHloCanonicalizeReductionPass());
     if (enable_shape_constraint_ir) {
@@ -826,11 +827,14 @@ LogicalResult BinaryStrToSharedLibrary(const DISCLoweringOptions& options,
 
 LogicalResult LowerHLOToSharedLibrary(ModuleOp m,
                                       const DISCLoweringOptions& options) {
+  llvm::dbgs() << "======== starting LowerHLOToLLVM =========\n";
+  llvm::dbgs() << "======== break point 1 =========\n";
+  llvm::dbgs() << "========================================\n";
   if (failed(LowerHLOToLLVM(m, options))) {
     llvm::errs() << "lower hlo to llvm failed\n";
     return failure();
   }
-
+  // return success();
   std::string binary;
   if (failed(LowerLLVMToBinary(m, options, binary))) {
     llvm::errs() << "lower llvm to binary failed\n";

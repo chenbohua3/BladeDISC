@@ -8,7 +8,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
+#include <iostream>
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Debug.h"
@@ -184,26 +184,31 @@ struct QuantizedDotLikeOpConverter
 
   LogicalResult matchAndRewrite(mhlo_disc::FakeQuantOp op,
                                 PatternRewriter& rewriter) const override {
+    std::cout << "starting quantize match&rewrite111111\n";
+
     auto dotOp = op.input().template getDefiningOp<OpTy>();
     if (!dotOp) return failure();
-
+    std::cout << "starting quantize match&rewrite222222\n";
     if (isa<mhlo::DotOp>(dotOp.getOperation())) {
+       std::cout << "starting quantize match&rewrite33333333\n";
       auto inputTy =
           dotOp.lhs().getType().template dyn_cast<RankedTensorType>();
       auto weightTy =
           dotOp.rhs().getType().template dyn_cast<RankedTensorType>();
       if (!inputTy || !weightTy || inputTy.getRank() != weightTy.getRank() ||
           inputTy.getRank() != 2) {
+        std::cout << "starting quantize match&rewrite44444444\n";
         return rewriter.notifyMatchFailure(
             op, "not supported quantized gemv a.t.m.");
       }
     }
-
+    std::cout << "starting quantize match&rewrite5555555\n";
     auto inputFakeQuantOp =
         dotOp.lhs().template getDefiningOp<mhlo_disc::FakeQuantOp>();
     auto weightFakeQuantOp =
         dotOp.rhs().template getDefiningOp<mhlo_disc::FakeQuantOp>();
     if (!inputFakeQuantOp || !weightFakeQuantOp) return failure();
+    std::cout << "starting quantize match&rewrite6666666\n";
     if (inputFakeQuantOp.use_signed() != weightFakeQuantOp.use_signed() ||
         inputFakeQuantOp.num_bits() != weightFakeQuantOp.num_bits()) {
       return failure();

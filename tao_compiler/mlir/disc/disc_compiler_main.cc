@@ -201,7 +201,7 @@ int RealMain() {
     module.dump();
     llvm::dbgs() << "\n======= END Original Module ==========\n";
   }
-
+  
   llvm::dbgs() << "[[ INFO ]] Running TF2XLA\n";
   auto s = tensorflow::ConvertTF2MlirHlo(module);
   if (!s.ok()) {
@@ -213,7 +213,6 @@ int RealMain() {
     module.dump();
     llvm::dbgs() << "\n======= END After TF2HLO ==========\n";
   }
-
   DISCLoweringOptions disc_options(outputFilename);
 #ifndef TAO_CPU_ONLY
   disc_options.gpu_options.multi_cc_support = MultiCCSupport;

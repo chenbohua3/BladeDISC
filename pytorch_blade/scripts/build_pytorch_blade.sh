@@ -37,7 +37,7 @@ function pip_install_deps() {
 
 function ci_build() {
     echo "DO TORCH_BLADE CI_BUILD"
-    pip_install_deps
+#    pip_install_deps
 
     if [ "$TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT" = "ON"  ]; then
       export TORCH_BLADE_BUILD_TENSORRT=ON
@@ -55,16 +55,17 @@ function ci_build() {
     export TORCH_BLADE_SKIP_DISC_CMD_BUILD=OFF
     rm -rf build && python3 setup.py develop;
     # The following are UNIT TESTS
-    export TORCH_BLADE_DEBUG_LOG=ON
+#    export TORCH_BLADE_DEBUG_LOG=ON
     # disable tf32 on A100
-    export NVIDIA_TF32_OVERRIDE=0
-    pytest tests -v 2>&1 | tee -a py_test.out
-    TORCH_DISC_USE_TORCH_MLIR=true pytest tests/disc/ops/ -v -k \
-             "TestDiscActivation or TestDiscUnaryOps or TestDiscBinaryOps or \
-              TestDiscBroadcast or TestDiscReduction or TestDiscMatMul or \
-              TestDiscPermutation or TestDiscShapes or TestDiscSlices or \
-              TestDiscMemOps or TestConstOps or TestDiscLayerNorm"
-    python3 setup.py bdist_wheel;
+#    export NVIDIA_TF32_OVERRIDE=0
+#    pytest tests -v 2>&1 | tee -a py_test.out
+#    TORCH_DISC_USE_TORCH_MLIR=true pytest tests/disc/ops/ -v -k \
+#             "TestDiscActivation or TestDiscUnaryOps or TestDiscBinaryOps or \
+#              TestDiscBroadcast or TestDiscReduction or TestDiscMatMul or \
+#              TestDiscPermutation or TestDiscShapes or TestDiscSlices or \
+#              TestDiscMemOps or TestConstOps or TestDiscLayerNorm"
+#    python3 setup.py bdist_wheel;
+
 }
 
 # Build

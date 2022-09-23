@@ -61,13 +61,14 @@ mlir::RankedTensorType BuildMlirRankedTensorType(
   } else {
     rank = *optional_rank;
   }
+  std::cout << "tensor rank: " << rank << std::endl;
+  std::cout << "mlir::ShapedType::kDynamicSize: " << mlir::ShapedType::kDynamicSize << std::endl;
   std::vector<mlir_dim_t> ranked_shape(rank, mlir::ShapedType::kDynamicSize);
   if (static_shape) {
     auto sizes = tensor_type->sizes().concrete_sizes();
     TORCH_CHECK(sizes, "The tensor has not concrete sizes");
     ranked_shape = *sizes;
   }
-
   auto scalar_type = tensor_type->scalarType();
   mlir::Type type = builder.getF32Type();
   if (scalar_type) {

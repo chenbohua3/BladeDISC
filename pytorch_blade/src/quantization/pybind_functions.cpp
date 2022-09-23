@@ -12,7 +12,9 @@
 #include "pybind_functions.h"
 #include "placeholder_op.h"
 
+#include <torch/csrc/jit/ir/irparser.h>
 #include <torch/csrc/jit/passes/inliner.h>
+#include <torch/csrc/jit/ir/subgraph_matcher.h>
 #include <torch/script.h>
 
 namespace torch {
@@ -57,12 +59,26 @@ void remove_placeholder(Module& model) {
   }
 }
 
+//  %weight.2 = torch_blade_quantization::placeholder(%weight.1)
+//  %weight.3 = aten::t(%weight.2)
+//  %y = aten::matmul(%x, %weight.3)
+// fake_quantize_per_channel_affine
+
+void fold_transpose(Module& model, Graph& pattern){
+  auto g = model.get_method("forward").graph();
+  std::cout << "pattern graph: " << pattern.toString() << std::endl;
+  auto matched = findPatternMatches(pattern, *g);
+  std::cout << "Find match nums: " << matched.size() << std::endl;
+
+}
+
 void initQuantizationBindings(py::module& m) {
   py::module quantization = m.def_submodule(
       "_quantization", "torch_blade python bindings for quantization");
   quantization.def(
       "add_placeholder_for_fake_quant", &add_placeholder_for_fake_quant);
   quantization.def("remove_placeholder", &remove_placeholder);
+  quantization.def("fold_transpose", &fold_transpose);
   quantization.attr("at_fake_quant_per_tensor_affine_name") =
       torch::blade::quantization::at_fake_quant_per_tensor_affine_name;
   quantization.attr("at_fake_quant_per_channel_affine_name") =

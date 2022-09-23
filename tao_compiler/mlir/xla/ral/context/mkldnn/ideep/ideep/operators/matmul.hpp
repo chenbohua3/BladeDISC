@@ -3,6 +3,15 @@
 
 namespace ideep {
 
+  template <typename T>
+  void print_vec(std::string name, std::vector<T> data) {
+    std::cout << name << " with size: " << data.size() << "  with data: ";
+    for (T d : data) {
+        std::cout << d << "  ";
+    }
+    std::cout << std::endl;
+  }
+
 struct matmul_forward : public dnnl::matmul,
                         utils::computation_cache<dnnl::matmul::primitive_desc> {
   using super = dnnl::matmul;
@@ -187,6 +196,7 @@ struct matmul_forward : public dnnl::matmul,
 
     tensor::dims dst_dims = {src.get_dim(0), weights.get_dim(1)};
     auto ndims = weights.ndims();
+    std::cout << "weight dims: " << ndims << std::endl;
     if (ndims == 3)
       dst_dims = {src.get_dim(0), src.get_dim(1), weights.get_dim(2)};
 
@@ -194,50 +204,66 @@ struct matmul_forward : public dnnl::matmul,
         weights.has_scale() ? weights.get_scale() : weights_scales;
     tensor scales_m, src_zero_point_m, wei_zero_point_m, dst_zero_point_m;
     if (!weights_scales_in.empty()) {
+      // weight must be s8 according to https://oneapi-src.github.io/oneDNN/dev_guide_matmul.html
       IDEEP_ENFORCE(alowp_kind == u8s8 || alowp_kind == s8s8,
                     "Unsupported lowp kind");
+      print_vec<float>("weights_scales_in", weights_scales_in);
+//      std::cout << "weights_scales_in size: " << weights_scales_in.size() << std::endl;
 
       auto src_scales_in =
           src.has_scale() ? src.get_scale()
                           : (src_scales.empty() ? IDEEP_DEF_SCALE : src_scales);
+      print_vec<float>("src_scales_in", src_scales_in);
       src_desc = {src.get_dims(),
                   alowp_kind == u8s8 ? data_type::u8 : data_type::s8, tag::any};
       if (src.get_data_type() == data_type::f32) {
         src_attr = {0, src_scales_in};
       }
 
-      int scale_size = (weights_scales_in.size() > 1) ? weights.get_dim(1) : 1;
+      int weight_scale_size = (weights_scales_in.size() > 1) ? weights.get_dim(1) : 1;
+      std::cout << "weight_scale_size: " << weight_scale_size << std::endl;
+
       weights_desc = weights.get_desc();
       if (weights.get_data_type() == data_type::f32) {
-        weights_attr = {utils::tensor_scale_mask(scale_size, false),
+        std::cout << "weight data type is f32" << std::endl;
+        weights_attr = {utils::tensor_scale_mask(weight_scale_size, false),
                         weights_scales_in};
       }
 
       // determine dst data type
       if (dst_scales.empty() || dst_scales == IDEEP_DEF_SCALE) {
+        std::cout << "dst_data_type is f32" << std::endl;
         dst_data_type = data_type::f32;
       } else {
-        dst_data_type = data_type::u8;
+        std::cout << "dst_data_type is set to dst_type" << std::endl;
+        dst_data_type = dst_type;
       }
 
       // fill primitive attr
-      scale_t op_scales(scale_size), bias_scales(scale_size);
+      scale_t op_scales(weight_scale_size), bias_scales(weight_scale_size);
       dst_scales_in = (dst_scales.empty() || dst_data_type == data_type::f32)
                           ? IDEEP_DEF_SCALE
                           : dst_scales;
+      print_vec<float>("dst_scales_in", dst_scales_in);
+
       auto src_zero_point =
           src.has_zero_point() ? src.get_zero_point() : std::vector<int32_t>(1);
       auto src_zero_point_size = static_cast<dim>(src_zero_point.size());
+      print_vec<int32_t>("src_zero_point", src_zero_point);
+
       auto dst_zero_point =
           dst.has_zero_point() ? dst.get_zero_point() : std::vector<int32_t>(1);
       auto dst_zero_point_size = static_cast<dim>(dst_zero_point.size());
+      print_vec<int32_t>("dst_zero_point", dst_zero_point);
       IDEEP_ENFORCE(src_zero_point_size == 1 && dst_zero_point_size == 1,
                     "DNNL only support 1-dim zero_point");
       auto wei_zero_point = weights.has_zero_point() ? weights.get_zero_point()
-                                                     : std::vector<int32_t>(1);
-      dim wei_zero_point_size = 1;
+                                                     : std::vector<int32_t>(weight_scale_size);
+      dim wei_zero_point_size = weight_scale_size;
+      print_vec<int32_t>("wei_zero_point", wei_zero_point);
 
       if (attr.has_op_kind(kind::sum)) {
+        std::cout << "has op kind of sum\n";
         float sum_scale = sum_coeff * dst_scales_in[0] /
                           (dst.has_scale() ? dst.get_scale()[0] : 1.0f);
         op_attr = attr_t::fuse_sum(sum_scale);
@@ -246,16 +272,19 @@ struct matmul_forward : public dnnl::matmul,
       auto bias_scales_in =
           bias.has_scale() ? bias.get_scale() : IDEEP_DEF_SCALE;
       bias_scales_in = bias_scales_in.size() == 1
-                           ? std::vector<float>(scale_size, bias_scales_in[0])
+                           ? std::vector<float>(weight_scale_size, bias_scales_in[0])
                            : bias_scales_in;
+      print_vec<float>("bias_scales_in", bias_scales_in);
+
       bool flag_runtime = false;
       if (flag_runtime) {
-        op_attr.set_output_scales(utils::op_scale_mask(scale_size),
+        std::cout << "Inside the flag_runtime\n";
+        op_attr.set_output_scales(utils::op_scale_mask(weight_scale_size),
                                   {DNNL_RUNTIME_F32_VAL});
-        tensor::desc scales_desc = {{scale_size}, data_type::f32, {1}};
+        tensor::desc scales_desc = {{weight_scale_size}, data_type::f32, {1}};
         scales_m.init(scales_desc, aengine);
         auto s = reinterpret_cast<float*>(scales_m.get_data_handle());
-        for (memory::dim i = 0; i < scale_size; ++i) {
+        for (memory::dim i = 0; i < weight_scale_size; ++i) {
           bias_scales[i] = src_scales_in[0] * weights_scales_in[i] /
                            (dst_coeff * bias_scales_in[i]);
           s[i] = dst_coeff * dst_scales_in[0] /
@@ -294,13 +323,13 @@ struct matmul_forward : public dnnl::matmul,
             dst_z[i] = dst_zero_point[i];
         }
       } else {
-        for (int i = 0; i < scale_size; i++) {
+        for (int i = 0; i < weight_scale_size; i++) {
           bias_scales[i] = src_scales_in[0] * weights_scales_in[i] /
                            (dst_coeff * bias_scales_in[i]);
           op_scales[i] = dst_coeff * dst_scales_in[0] /
                          (src_scales_in[0] * weights_scales_in[i]);
         }
-        op_attr.set_output_scales(utils::op_scale_mask(scale_size), op_scales);
+        op_attr.set_output_scales(utils::op_scale_mask(weight_scale_size), op_scales);
         op_attr.set_zero_points(DNNL_ARG_SRC,
                                 utils::tensor_zp_mask(src_zero_point.size()),
                                 src_zero_point);
@@ -318,7 +347,7 @@ struct matmul_forward : public dnnl::matmul,
         bias_desc = {bias.get_dims(), data_type::s32, bia_tag};
         if (bias.get_data_type() != data_type::s32) {
           auto ndims = bias.get_dims().size();
-          int mask = scale_size > 1 ? 1 << (ndims - 1) : 0;
+          int mask = weight_scale_size > 1 ? 1 << (ndims - 1) : 0;
           bias_attr = {mask, bias_scales};
         }
       }

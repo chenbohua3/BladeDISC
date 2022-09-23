@@ -206,6 +206,7 @@ void RegisterDialects(mlir::DialectRegistry& registry) {
 }
 
 bool IsMlirMhloSupported(const torch::jit::Node& node) {
+//  std::cout << "judging the node kind: " << node.kind().toDisplayString() << std::endl;
   if (IsTorchMlirAvailable()) {
     if (!node.kind().is_prim() && !AllTensorTypeAnalyzed(node)) {
       return false;
@@ -239,6 +240,7 @@ bool IsMlirMhloSupported(const torch::jit::Node& node) {
         if (SafeToCallConverter(node)) {
           return (*converter)(empty_ctx, node);
         }
+        std::cout << "judging the node kind: " << node.kind().toDisplayString() << std::endl;
         return true;
       } else {
         return (*converter)(empty_ctx, node);

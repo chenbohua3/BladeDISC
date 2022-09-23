@@ -198,6 +198,16 @@ struct DotGeneralLikeConverter : public OpRewritePattern<OpTy> {
 
     SmallVector<Value, 4> newOperands{stream_handle};
     for (Value operand : op.getOperands()) {
+      if (Operation *producer = operand.getDefiningOp()) {
+          llvm::outs() << "  - Operand produced by operation '"
+                       << producer->getName() << "'\n";
+      } else {
+      // If there is no defining op, the Value is necessarily a Block
+      // argument.
+          auto blockArg = operand.cast<BlockArgument>();
+          llvm::outs() << "  - Operand produced by Block argument, number "
+                       << blockArg.getArgNumber() << "\n";
+      }
       newOperands.push_back(operand);
     }
 
@@ -220,6 +230,7 @@ struct DotGeneralLikeConverter : public OpRewritePattern<OpTy> {
         dot_dimension_attr.getLhsContractingDimensions();
     auto rhs_contracting_dims =
         dot_dimension_attr.getRhsContractingDimensions();
+    llvm::outs() << "lhs_contracting_dims: " << lhs_contracting_dims[0] << " rhs_contracting_dims: " << rhs_contracting_dims[0] << "\n";
     // TODO: support multi-dim contracting
     if ((lhs_contracting_dims.size() != 1) ||
         (rhs_contracting_dims.size() != 1)) {

@@ -9,21 +9,82 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#if defined(TAO_CPU_ONLY) && defined(TAO_AARCH64)
+#if defined(TAO_CPU_ONLY)
 
 #include <sstream>
 #include <thread>
+#include <iostream>
 
+#if defined(TAO_AARCH64)
 #include "arm_compute/core/utils/quantization/AsymmHelpers.h"
-#include "tensorflow/compiler/mlir/xla/ral/context/common_context_impl_mkldnn.h"
+#endif
 
+#include "tensorflow/compiler/mlir/xla/ral/context/common_context_impl_mkldnn.h"
+#include "tensorflow/compiler/mlir/xla/ral/context/mkldnn/ideep/ideep/abstract_types.hpp"
+#include "tensorflow/compiler/mlir/xla/ral/context/mkldnn/ideep/ideep/attributes.hpp"
 namespace tao {
 namespace ral {
 
+#if defined(TAO_AARCH64)
 using namespace arm_compute;
+#endif
 
 namespace {
 
+
+void ral_qgemm_onednn_s8_s8_s8_per_channel(
+    ExecutionContext* ctx, opaque_t /*stream_handle*/,
+    MemRefType<int8_t, 2> input, MemRefType<int8_t, 2> weight,
+    MemRefType<float, 0> inputScales, MemRefType<int32_t, 0> inputZeroPoints,
+    MemRefType<float, 1> weightScales, MemRefType<int32_t, 1> weightZeroPoints,
+    MemRefType<float, 0> resultScales, MemRefType<int32_t, 0> resultZeroPoints,
+    MemRefType<int8_t, 2> result, bool tp_a, bool tp_b, bool weight_is_const) {
+  std::cout << "Inside the ral_qgemm_onednn_s8_s8_s8_per_channel\n";
+  CpuTimer timer("ral_qgemm_onednn_s8_s8_s8_per_channel");
+  if (isEmptyMemref(input) || isEmptyMemref(weight) || isEmptyMemref(result)) {
+    TAO_VLOG(1) << "ral_qgemm_onednn_s8_s8_s8_per_channel: early return for empty tensor";
+    return;
+  }
+  int64_t m = tp_a ? input.sizes[1] : input.sizes[0];
+  int64_t k = tp_a ? input.sizes[0] : input.sizes[1];
+  if (k != (tp_b ? weight.sizes[1] : weight.sizes[0])) {
+    ctx->signalError(Context::FAILURE, "mismatch contraction dim for gemm");
+    return;
+  }
+  std::cout << "Inside the ral_qgemm_onednn_s8_s8_s8_per_channel11111111111\n";
+  int64_t n = (tp_b ? weight.sizes[0] : weight.sizes[1]);
+  std::cout << "Inside the ral_qgemm_onednn_s8_s8_s8_per_channel2\n";
+  ideep::tensor input_t{dims{m, k}, ideep::data_type::s8, tp_a ? format_tag::ab : format_tag::ba, input.data};
+  std::cout << "Inside the ral_qgemm_onednn_s8_s8_s8_per_channel3\n";
+  ideep::tensor weight_t{dims{k, n}, ideep::data_type::s8, tp_b ? format_tag::ab : format_tag::ba, weight.data};
+  std::cout << "Inside the ral_qgemm_onednn_s8_s8_s8_per_channel4\n";
+  ideep::tensor output_t{dims{m, n}, ideep::data_type::s8, format_tag::ab, result.data};
+  std::cout << "Inside the ral_qgemm_onednn_s8_s8_s8_per_channel5\n";
+
+  std::vector<float> input_scales({inputScales.data[0]});
+  std::vector<float> weight_scales(weightScales.data,
+                              weightScales.data + weightScales.sizes[0]);
+  std::vector<float> output_scales({resultScales.data[0]});
+  
+  ideep::matmul_forward::compute(
+    input_t,
+    weight_t,
+    output_t,
+    1.0f,  // dst_coeff
+    1.0f,  // sum_coeff
+    input_scales, // input_scales
+    weight_scales, // weight_scales,
+    output_scales, // output_scales
+    ideep::attr_t(),
+    ideep::data_type::s8,
+    ideep::lowp_kind::s8s8,
+    ideep::engine::cpu_engine()
+    );
+  timer.Stop();
+
+}
+
+#if defined(TAO_AARCH64)
 template <int NDims>
 void ral_qconv_s8_s8_s8(
     ExecutionContext* ctx, opaque_t /*stream_handle*/,
@@ -464,16 +525,16 @@ void ral_qgemm_acl_s8_s8_s8_per_channel(
                 << "\n";
   }
 }
-
+#endif
 }  // namespace
 
 // Deprecated, remove such implementation once refactor is done.
-TAO_RAL_API("ral_qconv_s8_s8_s8", "cpu", ral_qconv_s8_s8_s8<4>);
+//TAO_RAL_API("ral_qconv_s8_s8_s8", "cpu", ral_qconv_s8_s8_s8<4>);
 
 // new fake_quant based implementation.
-TAO_RAL_API("ral_qconv", "cpu", ral_qconv_acl_s8_s8_s8_per_channel<4>);
+//TAO_RAL_API("ral_qconv", "cpu", ral_qconv_acl_s8_s8_s8_per_channel<4>);
 
-TAO_RAL_API("ral_qgemm", "cpu", ral_qgemm_acl_s8_s8_s8_per_channel);
+TAO_RAL_API("ral_qgemm", "cpu", ral_qgemm_onednn_s8_s8_s8_per_channel);
 
 }  // namespace ral
 }  // namespace tao

@@ -47,7 +47,9 @@ bool ConvertAtenHardtanh(
 }
 
 bool ConvertAtenRelu(MhloConversionContext& ctx, const torch::jit::Node& node) {
+  std::cout << "Inthe aten relu converter!\n";
   const auto& loc = GetNodeLocation(ctx, node);
+  loc.dump();
   const auto& ml_input = ctx.GetMlirValue(node.input(0));
   auto builder = *ctx.builder;
   auto elem_type = mlir::mhlo::GetMlirTensorElemType(ml_input);

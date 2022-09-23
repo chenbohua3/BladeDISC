@@ -52,7 +52,8 @@ bool ConvertAtenMatmul(
   if (rank0 < 1 || rank1 < 1) {
     return false;
   }
-
+  std::cout << "rank0: " << rank0 << std::endl;
+  std::cout << "rank1: " << rank1 << std::endl;
   auto& builder = *ctx.builder;
   // The implementation reference to:
   // https://pytorch.org/docs/stable/generated/torch.matmul.html
@@ -84,6 +85,7 @@ bool ConvertAtenMatmul(
     } else {
       // If both arguments are 2-dimensional, the matrix-matrix product is
       // returned. NB: if rank0 > 2 reshape it to rank 2.
+      std::cout << "rank0=rank1=2\n";
       ctx.value_map[node.output(0)] =
           BuildDotProduct_mm(builder, loc, lhs, rhs);
     }

@@ -8,7 +8,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
+#include <iostream>
 #include "mlir/mhlo/builder/matmul.h"
 
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
@@ -65,24 +65,26 @@ mlir::Value BuildDotProduct(mlir::OpBuilder& builder, const mlir::Location& loc,
 
   auto elem_type = GetMlirTensorElemType(lhs);
   auto result_type = mlir::RankedTensorType::get(result_shape, elem_type);
-
   auto lhs_contracing_dim_size = lhs_shape[rank - 1];
   auto rhs_contracing_dim_size = rhs_shape[rank - 2];
-  if (lhs_contracing_dim_size != rhs_contracing_dim_size) {
-    if (lhs_contracing_dim_size == ShapedType::kDynamicSize &&
-        rhs_contracing_dim_size >= 0) {
-      lhs_shape[rank - 1] = rhs_contracing_dim_size;
-      lhs = BuildReshapedTensor(builder, loc, lhs, lhs_shape,
-                                BuildDimSizeListOfTensor(builder, loc, lhs));
-    } else if (rhs_contracing_dim_size == ShapedType::kDynamicSize &&
-               lhs_contracing_dim_size >= 0) {
-      rhs_shape[rank - 2] = lhs_contracing_dim_size;
-      rhs = BuildReshapedTensor(builder, loc, rhs, rhs_shape,
-                                BuildDimSizeListOfTensor(builder, loc, rhs));
-    } else {
-      MHLO_CHECK(false, "contracting dimension sizes must match for lhs/rhs");
-    }
-  }
+  std::cout << "lhs_contracing_dim_size: " << lhs_contracing_dim_size << std::endl;
+  std::cout << "rhs_contracing_dim_size: " << rhs_contracing_dim_size << std::endl;
+//  if (lhs_contracing_dim_size != rhs_contracing_dim_size) {
+//    std::cout << "lhs not equal to rhs\n";
+//    if (lhs_contracing_dim_size == ShapedType::kDynamicSize &&
+//        rhs_contracing_dim_size >= 0) {
+//      lhs_shape[rank - 1] = rhs_contracing_dim_size;
+//      lhs = BuildReshapedTensor(builder, loc, lhs, lhs_shape,
+//                                BuildDimSizeListOfTensor(builder, loc, lhs));
+//    } else if (rhs_contracing_dim_size == ShapedType::kDynamicSize &&
+//               lhs_contracing_dim_size >= 0) {
+//      rhs_shape[rank - 2] = lhs_contracing_dim_size;
+//      rhs = BuildReshapedTensor(builder, loc, rhs, rhs_shape,
+//                                BuildDimSizeListOfTensor(builder, loc, rhs));
+//    } else {
+//      MHLO_CHECK(false, "contracting dimension sizes must match for lhs/rhs");
+//    }
+//  }
 
   auto dot_dimension_attr = mlir::mhlo::DotDimensionNumbersAttr::get(
       builder.getContext(), batch_dims, batch_dims, {rank - 1}, {rank - 2});
@@ -142,6 +144,7 @@ mlir::Value BuildDotProduct_mm(mlir::OpBuilder& builder,
 
   auto rhs_rank = GetRankOfMlirValue(rhs);
   auto lhs_rank = GetRankOfMlirValue(lhs);
+  std::cout << "BuildDotProduct_mm: rhs_rank: " << rhs_rank << " lhs_rank: " << lhs_rank << std::endl;
   MHLO_CHECK(rhs_rank == 2,
              "The right hand-side input of matmul must has rank == 2");
   MHLO_CHECK(lhs_rank >= 2,
