@@ -1913,6 +1913,26 @@ gentbl_cc_library(
 )
 
 gentbl_cc_library(
+    name = "mhlo_disc_enums_inc_gen",
+    compatible_with = get_compatible_with_cloud(),
+    tbl_outs = [
+        (
+            ["-gen-enum-decls"],
+            "IR/hlo_disc_enums.h.inc",
+        ),
+        (
+            ["-gen-enum-defs"],
+            "IR/hlo_disc_enums.cc.inc",
+        ),
+    ],
+    tblgen = "@llvm-project//mlir:mlir-tblgen",
+    td_file = "IR/hlo_disc_enums.td",
+    deps = [
+        "//tensorflow/compiler/xla/mlir_hlo:hlo_ops_td_files",
+    ],
+)
+
+gentbl_cc_library(
     name = "mhlo_disc_ops_inc_gen",
     compatible_with = get_compatible_with_cloud(),
     strip_include_prefix = "",
@@ -1928,7 +1948,10 @@ gentbl_cc_library(
     ],
     tblgen = "@llvm-project//mlir:mlir-tblgen",
     td_file = "IR/hlo_disc_ops.td",
-    deps = ["//tensorflow/compiler/xla/mlir_hlo:hlo_ops_td_files"],
+    deps = [
+        ":mhlo_disc_enums_inc_gen",
+        "//tensorflow/compiler/xla/mlir_hlo:hlo_ops_td_files"
+    ],
 )
 
 cc_library(
@@ -2045,6 +2068,7 @@ cc_library(
     includes = ["include"],
     deps = [
         ":mhlo_disc_ops_inc_gen",
+        ":mhlo_disc_enums_inc_gen",
         ":custom_call_base",
         "//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
         "@llvm-project//llvm:Support",

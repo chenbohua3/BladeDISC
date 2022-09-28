@@ -39,7 +39,16 @@ void ral_qgemm_onednn_s8_s8_s8_per_channel(
     MemRefType<float, 1> weightScales, MemRefType<int32_t, 1> weightZeroPoints,
     MemRefType<float, 0> resultScales, MemRefType<int32_t, 0> resultZeroPoints,
     MemRefType<int8_t, 2> result, bool tp_a, bool tp_b, bool weight_is_const) {
+
   std::cout << "Inside the ral_qgemm_onednn_s8_s8_s8_per_channel\n";
+  for (int i = 0; i < Size(input); ++i) {
+      TAO_VLOG(0) << "input[" << i
+                  << "] = " << static_cast<int32_t>(input.data[i]);
+    }
+    for (int i = 0; i < Size(weight); ++i) {
+      TAO_VLOG(0) << "weight[" << i
+                  << "] = " << static_cast<int32_t>(weight.data[i]);
+  }
   CpuTimer timer("ral_qgemm_onednn_s8_s8_s8_per_channel");
   if (isEmptyMemref(input) || isEmptyMemref(weight) || isEmptyMemref(result)) {
     TAO_VLOG(1) << "ral_qgemm_onednn_s8_s8_s8_per_channel: early return for empty tensor";
@@ -80,6 +89,10 @@ void ral_qgemm_onednn_s8_s8_s8_per_channel(
     ideep::lowp_kind::s8s8,
     ideep::engine::cpu_engine()
     );
+  for (int i = 0; i < Size(result); ++i) {
+      TAO_VLOG(0) << "output[" << i
+                  << "] = " << static_cast<int32_t>(result.data[i]);
+    }
   timer.Stop();
 
 }

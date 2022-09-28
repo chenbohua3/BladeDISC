@@ -78,9 +78,15 @@ struct QuantizeOpConverter : public OpRewritePattern<mhlo_disc::QuantizeOp> {
     // quant\_max)
     Value t0 = rewriter.create<mhlo::DivOp>(loc, op.input(), bcastedScale);
     Value t1 = rewriter.create<mhlo::AddOp>(loc, t0, bcastedZeroPoint);
-    Value t2 = rewriter.create<mhlo::ClampOp>(loc, t1, bcastedQuantMin,
+
+//    Value offset = rewriter.create<mhlo::ConstantOp>(loc, rewriter.getFloatAttr(t1.getType().cast<RankedTensorType>().getElementType(), 0.5));
+//    Value bcastedOffset = rewriter.create<mhlo::DynamicBroadcastInDimOp>(
+//        loc, inputTy, offset, inputShape, rewriter.getI64TensorAttr({}));
+//    Value t2 = rewriter.create<mhlo::AddOp>(loc, t1, bcastedOffset);
+    Value t2 = rewriter.create<mhlo::RoundNearestEvenOp>(loc, t1);
+    Value t3 = rewriter.create<mhlo::ClampOp>(loc, t2, bcastedQuantMin,
                                               bcastedQuantMax);
-    Value out = rewriter.create<mhlo::ConvertOp>(loc, op.getType(), t2);
+    Value out = rewriter.create<mhlo::ConvertOp>(loc, op.getType(), t3);
     rewriter.replaceOp(op, out);
     return success();
   }

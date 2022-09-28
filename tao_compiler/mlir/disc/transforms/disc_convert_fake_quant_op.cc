@@ -239,7 +239,8 @@ struct QuantizedDotLikeOpConverter
               loc, outTy, fakeQuantOp.input(), fakeQuantOp.scale(),
               fakeQuantOp.zero_point(), fakeQuantOp.use_symmetric(),
               fakeQuantOp.axis(), fakeQuantOp.quant_min(),
-              fakeQuantOp.quant_max(), fakeQuantOp.use_dynamic());
+              fakeQuantOp.quant_max(), fakeQuantOp.use_dynamic(),
+              fakeQuantOp.round_mode());
           return quantizedInput;
         };
 

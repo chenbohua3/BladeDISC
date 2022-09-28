@@ -39,6 +39,9 @@ bool ConvertAtenFakeQuantizePerTensorAffine(MhloConversionContext& ctx, const to
 
   auto num_bits_attr = builder.getI64IntegerAttr(8);
   auto result_type = BuildMlirRankedTensorType(builder, *node.output(0));
+  auto round_mode_attr = mlir::mhlo_disc::RoundModeEnumAttr::get(
+    builder.getContext(), mlir::mhlo_disc::RoundModeEnum::RoundToNearest
+  );
   auto result = builder.create<mlir::mhlo_disc::FakeQuantOp>(
     loc,
     inp.getType().dyn_cast<mlir::RankedTensorType>(),
@@ -51,7 +54,8 @@ bool ConvertAtenFakeQuantizePerTensorAffine(MhloConversionContext& ctx, const to
     num_bits_attr, // num_bits
     builder.getI64IntegerAttr(-128), // quant_min
     builder.getI64IntegerAttr(127), // quant_max
-    builder.getBoolAttr(false) // use_dynamic
+    builder.getBoolAttr(false), // use_dynamic
+    round_mode_attr
     );
   ctx.value_map[node.output(0)] = result;
   return true;
@@ -87,6 +91,9 @@ bool ConvertAtenFakeQuantizePerChannelAffine(MhloConversionContext& ctx, const t
 
   auto num_bits_attr = builder.getI64IntegerAttr(8);
   auto result_type = BuildMlirRankedTensorType(builder, *node.output(0));
+  auto round_mode_attr = mlir::mhlo_disc::RoundModeEnumAttr::get(
+    builder.getContext(), mlir::mhlo_disc::RoundModeEnum::RoundToNearest
+  );
   auto result = builder.create<mlir::mhlo_disc::FakeQuantOp>(
     loc,
     inp.getType().dyn_cast<mlir::RankedTensorType>(),
@@ -99,7 +106,8 @@ bool ConvertAtenFakeQuantizePerChannelAffine(MhloConversionContext& ctx, const t
     num_bits_attr, // num_bits
     builder.getI64IntegerAttr(-128), // quant_min
     builder.getI64IntegerAttr(127), // quant_max
-    builder.getBoolAttr(false) // use_dynamic
+    builder.getBoolAttr(false), // use_dynamic
+    round_mode_attr
     );
   ctx.value_map[node.output(0)] = result;
   return true;
