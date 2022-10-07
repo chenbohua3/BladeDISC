@@ -60,15 +60,11 @@ void ral_qgemm_onednn_s8_s8_s8_per_channel(
     ctx->signalError(Context::FAILURE, "mismatch contraction dim for gemm");
     return;
   }
-  std::cout << "Inside the ral_qgemm_onednn_s8_s8_s8_per_channel11111111111\n";
   int64_t n = (tp_b ? weight.sizes[0] : weight.sizes[1]);
-  std::cout << "Inside the ral_qgemm_onednn_s8_s8_s8_per_channel2\n";
-  ideep::tensor input_t{dims{m, k}, ideep::data_type::s8, tp_a ? format_tag::ab : format_tag::ba, input.data};
-  std::cout << "Inside the ral_qgemm_onednn_s8_s8_s8_per_channel3\n";
-  ideep::tensor weight_t{dims{k, n}, ideep::data_type::s8, tp_b ? format_tag::ab : format_tag::ba, weight.data};
-  std::cout << "Inside the ral_qgemm_onednn_s8_s8_s8_per_channel4\n";
+  std::cout << "m: " << m << " k: " << k << " n: " << n << std::endl;
+  ideep::tensor input_t{dims{m, k}, ideep::data_type::s8, tp_a ? format_tag::ba : format_tag::ab, input.data};
+  ideep::tensor weight_t{dims{k, n}, ideep::data_type::s8, tp_b ? format_tag::ba : format_tag::ab, weight.data};
   ideep::tensor output_t{dims{m, n}, ideep::data_type::s8, format_tag::ab, result.data};
-  std::cout << "Inside the ral_qgemm_onednn_s8_s8_s8_per_channel5\n";
 
   std::vector<float> input_scales({inputScales.data[0]});
   std::vector<float> weight_scales(weightScales.data,

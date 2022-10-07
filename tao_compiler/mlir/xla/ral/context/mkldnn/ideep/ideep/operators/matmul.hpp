@@ -326,9 +326,11 @@ struct matmul_forward : public dnnl::matmul,
         for (int i = 0; i < weight_scale_size; i++) {
           bias_scales[i] = src_scales_in[0] * weights_scales_in[i] /
                            (dst_coeff * bias_scales_in[i]);
-          op_scales[i] = dst_coeff * dst_scales_in[0] /
-                         (src_scales_in[0] * weights_scales_in[i]);
+//          op_scales[i] = dst_coeff * dst_scales_in[0] /
+//                         (src_scales_in[0] * weights_scales_in[i]);
+            op_scales[i] = dst_coeff * src_scales_in[0] * weights_scales_in[i] / dst_scales_in[0];
         }
+        std::cout << "op_scales: " << op_scales[0] << "  " << op_scales[1] << std::endl;
         op_attr.set_output_scales(utils::op_scale_mask(weight_scale_size), op_scales);
         op_attr.set_zero_points(DNNL_ARG_SRC,
                                 utils::tensor_zp_mask(src_zero_point.size()),
