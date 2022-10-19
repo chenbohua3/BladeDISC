@@ -510,16 +510,16 @@ void ral_qgemm_onednn_s8_s8_s8_per_channel(
                    "empty tensor";
     return;
   }
-  if (TAO_VLOG_IS_ON(0)) {
-    for (int i = 0; i < Size(input); ++i) {
-      TAO_VLOG(0) << "input[" << i
-                  << "] = " << static_cast<int32_t>(input.data[i]);
-    }
-    for (int i = 0; i < Size(weight); ++i) {
-      TAO_VLOG(0) << "weight[" << i
-                  << "] = " << static_cast<int32_t>(weight.data[i]);
-    }
-  }
+//  if (TAO_VLOG_IS_ON(0)) {
+//    for (int i = 0; i < Size(input); ++i) {
+//      TAO_VLOG(0) << "input[" << i
+//                  << "] = " << static_cast<int32_t>(input.data[i]);
+//    }
+//    for (int i = 0; i < Size(weight); ++i) {
+//      TAO_VLOG(0) << "weight[" << i
+//                  << "] = " << static_cast<int32_t>(weight.data[i]);
+//    }
+//  }
   int64_t m = tp_a ? input.sizes[1] : input.sizes[0];
   int64_t k = tp_a ? input.sizes[0] : input.sizes[1];
   if (k != (tp_b ? weight.sizes[1] : weight.sizes[0])) {
@@ -559,12 +559,12 @@ void ral_qgemm_onednn_s8_s8_s8_per_channel(
                                  ideep::data_type::s8,    // dst_type
                                  ideep::lowp_kind::s8s8,  // input-weight type
                                  ideep::engine::cpu_engine());
-  if (TAO_VLOG_IS_ON(0)) {
-    for (int i = 0; i < Size(result); ++i) {
-      TAO_VLOG(0) << "output[" << i
-                  << "] = " << static_cast<int32_t>(result.data[i]);
-    }
-  }
+//  if (TAO_VLOG_IS_ON(0)) {
+//    for (int i = 0; i < Size(result); ++i) {
+//      TAO_VLOG(0) << "output[" << i
+//                  << "] = " << static_cast<int32_t>(result.data[i]);
+//    }
+//  }
   timer.Stop();
 }
 

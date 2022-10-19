@@ -1832,6 +1832,25 @@ cc_library(
 )
 
 cc_library(
+    name = "disc_fold_const_for_fake_quant",
+    srcs = ["transforms/disc_const_fold_for_fake_quant.cc"],
+    deps = [
+        ":disc_shape_optimization_utils",
+        ":mhlo_disc",
+        ":pass_details",
+        "//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
+        "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//mlir:ShapeDialect",
+        "@llvm-project//mlir:Support",
+        "@llvm-project//mlir:TensorDialect",
+        "@llvm-project//mlir:Transforms",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
     name = "disc_lower_quantize_and_dequantize",
     srcs = ["transforms/disc_lower_quantize_and_dequantize.cc"],
     deps = [
@@ -1870,6 +1889,7 @@ cc_library(
         ":disc_dense_to_sparse",
         ":disc_convert_const_to_ral",
         ":disc_convert_fake_quant_op",
+        ":disc_fold_const_for_fake_quant",
         ":disc_cpu_map_parallel_loop",
         ":disc_duplicate_computation_for_fusion",
         ":disc_flatten_memref_access",

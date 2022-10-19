@@ -8,7 +8,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import torch
 from torch_blade.config import Config
 from torch_blade.mlir import _DISC_NAME
 from torch_blade.tensorrt import _TRT_NAME
@@ -36,6 +36,61 @@ def _jit_pass_remove_all_placeholder(c_module):
 def _jit_replace_aten_fake_quant_with_custom_version(c_module):
     _quantization.replace_aten_fake_quant_with_custom_version(c_module)
 
+def _jit_pass_fold_transpose(c_module):
+    # pattern_str = """
+    # graph(%x : Tensor):
+    #   %11 : int = prim::Constant[value=255]()
+    #   return (%11)"""
+    # pattern = torch.parse_ir(pattern_str)
+    # _quantization.fold_transpose(c_module, pattern)
+    patterns = [
+        ("aten::matmul", 1),
+        ("aten::t", 0),
+        ("torch_blade::placeholder", 0),
+        ("torch_blade::fake_quant", 0),
+        ("prim::Constant", None)
+    ]
+    graph = c_module.forward.graph
+    all_matched = []
+    for n in reversed(graph.node_list()):
+        cur_idx = 0
+        is_match = True
+        matched = []
+        cur_node = n
+        while(cur_idx < len(patterns) or cur_idx is not None):
+            cur_pattern_kind = patterns[cur_idx][0]
+            next_t_idx = patterns[cur_idx][1]
+            if cur_node.kind() == cur_pattern_kind:
+                matched.append(cur_node)
+                cur_idx = cur_idx + 1
+                if next_t_idx is None:
+                    break
+                else:
+                    cur_node = cur_node.input_list()[next_t_idx].node()
+            else:
+                matched = []
+                is_match = False
+                break
+        if is_match:
+            all_matched.append(matched)
+
+    for m in all_matched:
+        constant_node = m[-1]
+        constant = constant_node.t("value")
+        constant_t = torch.t(constant)
+        # new_constant_node = graph.create('prim::Constant')
+        constant_node.t_("value", constant_t)
+        constant_node.output().inferTypeFrom(constant_t)
+
+        cur_axis_node = m[-2].input_list()[6].node().input().node()
+        cur_axis = cur_axis_node.i("value")
+        new_axis = constant.dim() - 1 - cur_axis
+        cur_axis_node.i_("value", new_axis)
+        aten_t_node = m[1]
+        aten_t_node.output().replaceAllUsesWith(aten_t_node.input())
+        aten_t_node.destroy()
+        s = 1
+
 
 def _process_aten_fake_quant(c_module):
     # This function will processes aten::fake_quant to avoid it being folded by
@@ -59,6 +114,7 @@ def _process_aten_fake_quant(c_module):
         _jit_replace_aten_fake_quant_with_custom_version(c_module)
         # to avoid torch_blade::fake_quant be folded
         _jit_pass_add_placeholder_for_fake_quant(c_module)
+        _jit_pass_fold_transpose(c_module)
     else:
         raise RuntimeError("Unsupported backend for torchscript with fake quant")
 

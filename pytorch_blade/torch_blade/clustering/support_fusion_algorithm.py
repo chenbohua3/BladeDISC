@@ -189,7 +189,7 @@ def _cluster_by_union_find(graph_builder, support_info):
         return True
 
     graph_topolist = graph_builder.group_topolist()
-    max_iter_count = 10
+    max_iter_count = 100
     while max_iter_count > 0:
         max_iter_count -= 1
         # TODO: merge brother group nodes that not construct a cycle
