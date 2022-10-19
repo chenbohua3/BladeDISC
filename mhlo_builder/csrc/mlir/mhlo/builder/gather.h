@@ -9,27 +9,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <memory>
-#include <tuple>
+#pragma once
 
-namespace torch {
-namespace jit {
-class Graph;
-class Node;
-} // namespace jit
-} // namespace torch
+#include "mlir/mhlo/builder/mlir_type_utils.h"
 
-namespace torch {
-namespace blade {
+namespace mlir {
+namespace mhlo {
 
-bool IsTorchMlirAvailable();
-
-bool IsMlirMhloSupported(const torch::jit::Node&);
-
-// Return a pair of the MLIR module strings, with the first one in
-// parsable/compilable format and the second one in pretty format which elide
-// large elements like constant tensors.
-std::tuple<std::string, std::string, std::string, std::string>
-ConvertTorchScriptToMhlo(std::shared_ptr<torch::jit::Graph> graph);
-} // namespace blade
-} // namespace torch
+mlir::Value BuildGather(mlir::OpBuilder& builder, const mlir::Location& loc,
+                        const mlir::Value& params, const mlir::Value& indices,
+                        mlir_dim_t axis = 0);
+}  // namespace mhlo
+}  // namespace mlir

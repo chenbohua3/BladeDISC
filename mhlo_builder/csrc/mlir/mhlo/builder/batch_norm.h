@@ -1,4 +1,4 @@
-// Copyright 2022 The BladeDISC Authors. All rights reserved.
+// Copyright 2021 The BladeDISC Authors. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -10,14 +10,16 @@
 // limitations under the License.
 
 #pragma once
-#include "pytorch_blade/compiler/mlir/converters/mhlo_conversion_context.h"
+#include "mlir/mhlo/builder/mlir_type_utils.h"
 
-namespace torch {
-namespace blade {
+namespace mlir {
+namespace mhlo {
 
-// TODO(Yancey1989): should dry run torchToMhlo pass to
-// evaluate TorchScript symbol
-bool IsTorchMlirSupported(const torch::jit::Node& node);
+mlir::Value BuildBatchNormInference(
+    mlir::OpBuilder& builder, const mlir::Location& loc,
+    const mlir::Value& input, const mlir::Value& scale,
+    const mlir::Value& offset, const mlir::Value& mean,
+    const mlir::Value& variance, float eps, mlir_dim_t feature_index);
 
-} //  namespace blade
-} //  namespace torch
+}  // namespace mhlo
+}  // namespace mlir

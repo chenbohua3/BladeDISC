@@ -9,27 +9,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <memory>
-#include <tuple>
+#include "pytorch_blade/compiler/mlir/converters/impl/utils.h"
 
-namespace torch {
-namespace jit {
-class Graph;
-class Node;
-} // namespace jit
-} // namespace torch
+#include "pytorch_blade/common_utils/logging.h"
+#include "pytorch_blade/compiler/mlir/converters/impl/prim_constant.h"
+
+#include <torch/script.h>
 
 namespace torch {
 namespace blade {
-
-bool IsTorchMlirAvailable();
-
-bool IsMlirMhloSupported(const torch::jit::Node&);
-
-// Return a pair of the MLIR module strings, with the first one in
-// parsable/compilable format and the second one in pretty format which elide
-// large elements like constant tensors.
-std::tuple<std::string, std::string, std::string, std::string>
-ConvertTorchScriptToMhlo(std::shared_ptr<torch::jit::Graph> graph);
+bool CheckConstAttribute(
+    const torch::jit::Value* attr_val,
+    const std::string& op_name,
+    const std::string& param_name) {
+  if (!IsPrimConstant(attr_val)) {
+    TORCH_CHECK(attr_val != nullptr);
+    LOG(WARNING) << "Could not convert " << op_name
+                 << " with non-compilation time parameter: " << param_name
+                 << " %" << attr_val->debugName();
+    return false;
+  }
+  return true;
+}
 } // namespace blade
 } // namespace torch

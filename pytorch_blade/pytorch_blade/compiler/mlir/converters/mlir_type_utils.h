@@ -9,27 +9,33 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <memory>
-#include <tuple>
+#pragma once
+#include <c10/core/ScalarType.h>
+#include <mlir/IR/Builders.h>
+#include <mlir/IR/BuiltinTypes.h>
 
 namespace torch {
 namespace jit {
-class Graph;
-class Node;
-} // namespace jit
+class Value;
+}
 } // namespace torch
 
 namespace torch {
 namespace blade {
 
-bool IsTorchMlirAvailable();
+mlir::Type BuildMlirElemType(
+    mlir::Builder& builder,
+    c10::ScalarType scalar_type);
 
-bool IsMlirMhloSupported(const torch::jit::Node&);
+mlir::RankedTensorType BuildMlirRankedTensorType(
+    mlir::OpBuilder& builder,
+    const torch::jit::Value& value,
+    bool static_shape = false);
 
-// Return a pair of the MLIR module strings, with the first one in
-// parsable/compilable format and the second one in pretty format which elide
-// large elements like constant tensors.
-std::tuple<std::string, std::string, std::string, std::string>
-ConvertTorchScriptToMhlo(std::shared_ptr<torch::jit::Graph> graph);
+::llvm::Optional<mlir::Value> BuildCastWithJitType(
+    mlir::OpBuilder& builder,
+    const mlir::Location& loc,
+    const mlir::Value& value,
+    const torch::jit::Value* dtype);
 } // namespace blade
 } // namespace torch

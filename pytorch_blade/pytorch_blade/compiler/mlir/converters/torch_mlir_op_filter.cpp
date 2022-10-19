@@ -16,6 +16,7 @@
 #include <string>
 #include <unordered_set>
 #include "pytorch_blade/common_utils/utils.h"
+#include "pytorch_blade/compiler/mlir/converters/mhlo_conversion_context.h"
 
 #include <torch/script.h>
 
