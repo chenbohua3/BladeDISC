@@ -19,6 +19,8 @@
 #include "pytorch_blade/compiler/mlir/converters/mhlo_converter_register.h"
 #include "pytorch_blade/compiler/mlir/converters/mlir_type_utils.h"
 #include "stablehlo/dialect/ChloOps.h"
+#include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
+#include "mlir/Dialect/Tensor/IR/Tensor.h"
 
 #include <torch/script.h>
 
@@ -181,6 +183,114 @@ bool ConvertAtenAddmm(
   return true;
 }
 
+//int64_t toPositiveDim(int64_t dim, int64_t inputRank) {
+//  return dim >= 0 ? dim : dim + inputRank;
+//}
+//
+//
+//SmallVector<size_t> toPositiveDims(llvm::ArrayRef<int64_t> dims, int64_t rank) {
+//  SmallVector<size_t> posDims;
+//  posDims.reserve(rank);
+//  std::transform(
+//      dims.begin(), dims.end(), std::back_inserter(posDims),
+//      [rank](int64_t d) -> size_t { return toPositiveDim(d, rank); });
+//  return posDims;
+//}
+
+mlir::SmallVector<mlir::Value, 4> getDimSizesOfTensor(mlir::OpBuilder& builder,
+                                         mlir::Location& loc, mlir::Value value,
+                                         mlir::ArrayRef<int64_t> inpDims,
+                                         size_t dimSizeIndexBits) {
+  auto valueTy = value.getType().dyn_cast<mlir::RankedTensorType>();
+
+  auto rank = valueTy.getRank();
+  auto dims =inpDims;
+  mlir::SmallVector<mlir::Value, 4> dimSizes;
+  dimSizes.reserve(dims.size());
+
+  for (auto d : dims) {
+    dimSizes.emplace_back(builder.create<mlir::arith::IndexCastOp>(
+        loc, builder.getIntegerType(dimSizeIndexBits),
+        builder.create<mlir::tensor::DimOp>(loc, value, d)));
+  }
+  return dimSizes;
+}
+
+mlir::SmallVector<mlir::Value, 4> getDimSizesOfTensor(mlir::OpBuilder& builder,
+                                                     mlir::Location& loc, mlir::Value value,
+                                                     size_t dimSizeIndexBits) {
+  auto valueTy = value.getType().dyn_cast<mlir::RankedTensorType>();
+
+  auto rank = valueTy.getRank();
+  // Get int vector [0, 1, ..., rank-1]
+  std::vector<int64_t> dims(rank);
+  std::iota(dims.begin(), dims.end(), 0);
+  return getDimSizesOfTensor(builder, loc, value, dims, dimSizeIndexBits);
+}
+
+void getMmBroadcast(mlir::OpBuilder& builder, mlir::Location& loc, mlir::Value &inpLhs,
+                     mlir::Value &inpRhs, int64_t leadingRank,
+                     size_t dimSizeIndexBits) {
+  mlir::Value lhs = inpLhs;
+  mlir::Value rhs = inpRhs;
+  auto lhsRankTy = inpLhs.getType().dyn_cast<mlir::RankedTensorType>();
+  auto rhsRankTy = inpRhs.getType().dyn_cast<mlir::RankedTensorType>();
+  auto lhsRank = lhsRankTy.getRank();
+  auto rhsRank = rhsRankTy.getRank();
+  assert(lhsRank>=2);
+
+  assert(rhsRank==2);
+//        op.getType());
+
+  auto lhsShape = lhsRankTy.getShape();
+  auto rhsShape = rhsRankTy.getShape();
+  // lhsRank  rhsRank
+  //    2        2
+  //    2        3
+  //    3        2
+  //    3        3
+  if (lhsRank > rhsRank) {
+    // lhsRank = 3
+    // rhsRank = 2
+    // [?, m, n] x [n, k] ==> [?xm, n] x [n, k]
+    auto lhs_dims_vec = getDimSizesOfTensor(
+        builder, loc, lhs, dimSizeIndexBits);
+    mlir::Value lhs_dim0 = lhs_dims_vec[0];
+    mlir::Value lhs_dim1 = lhs_dims_vec[1];
+    mlir::Value lhs_dim2 = lhs_dims_vec[2];
+    mlir::Value lhs_new_dim0 = builder.create<mlir::arith::MulIOp>(
+        loc, lhs_dim0, lhs_dim1);
+
+    mlir::SmallVector<mlir::Value, 4> lhs_new_dims;
+    lhs_new_dims.push_back(lhs_new_dim0);
+    lhs_new_dims.push_back(lhs_dim2);
+
+    mlir::Value lhsShapeTensor = builder.create<mlir::tensor::FromElementsOp>(
+        loc, lhs_new_dims);
+
+    std::vector<int64_t> newShape;
+    int64_t dim1_num = lhsShape[0];
+    int64_t dim2_num = lhsShape[1];
+    if (dim1_num>0 && dim2_num>0){
+        newShape.push_back(dim1_num*dim2_num);
+    } else {
+        newShape.push_back(-1);
+    }
+    newShape.push_back(lhsShape[2]);
+
+    lhs = builder.create<mlir::mhlo::DynamicReshapeOp>(
+          loc,
+          mlir::RankedTensorType::get(
+              newShape,
+              lhsRankTy.getElementType()),
+         lhs, lhsShapeTensor);
+  }
+  std::cout << "cccc" << std::endl;
+  inpLhs = lhs;
+  inpRhs = rhs;
+}
+
+
 // linear
 bool ConvertAtenLinear(
     MhloConversionContext& ctx,
@@ -194,6 +304,59 @@ bool ConvertAtenLinear(
   SmallVec4<mlir_dim_t> trans_dim_vec = {1, 0};
   auto& builder = *ctx.builder;
   auto transposed_weight = BuildPermute(builder, loc, weight, trans_dim_vec);
+
+  auto& lhs = input;
+  auto& rhs = transposed_weight;
+  auto lhsTy = lhs.getType().cast<mlir::RankedTensorType>();
+  auto rhsTy = rhs.getType().cast<mlir::RankedTensorType>();
+  int64_t lhsRank = lhsTy.getRank();
+  int64_t rhsRank = rhsTy.getRank();
+  auto lhsElemTy = lhsTy.getElementType();
+  auto rhsElemTy = rhsTy.getElementType();
+  auto lhsShape = lhsTy.getShape();
+  auto rhsShape = rhsTy.getShape();
+//  if (lhsRank == 3 && rhsRank == 2) {
+//    int64_t batch = lhsShape[0];
+//    int64_t m = lhsShape[1];
+//    int64_t k = rhsShape[1];
+//    std::vector<int64_t> now_output_shape;
+//        if (batch > 0 && m > 0) {
+//            now_output_shape.push_back(batch);
+//            now_output_shape.push_back(m);
+//        } else {
+//            now_output_shape.push_back(-1);
+//            now_output_shape.push_back(-1);
+//        }
+//
+//    now_output_shape.push_back(k);
+//    mlir::SmallVector<mlir::Value, 4> lhs_output_dims_vec;
+//    auto lhs_dims_vec = getDimSizesOfTensor(
+//        builder, loc, input, 32);
+//    auto rhs_dims_vec = getDimSizesOfTensor(
+//        builder, loc, transposed_weight, 32);
+//    lhs_output_dims_vec.push_back(lhs_dims_vec[0]);
+//    lhs_output_dims_vec.push_back(lhs_dims_vec[1]);
+//    lhs_output_dims_vec.push_back(rhs_dims_vec[1]);
+//
+//    getMmBroadcast(builder, loc, lhs, rhs, 1, 1);
+//    auto output = builder.create<mlir::mhlo::DotOp>(loc, lhs, rhs, nullptr).getResult();
+//
+//    mlir::Value outputShapeTensor = builder.create<mlir::tensor::FromElementsOp>(
+//        loc, lhs_output_dims_vec);
+//
+//    output = builder.create<mlir::mhlo::DynamicReshapeOp>(
+//      loc,
+//      mlir::RankedTensorType::get(
+//          now_output_shape,
+//          lhsElemTy),
+//     output, outputShapeTensor);
+//    if (bias) {
+//        output = BuildMlirBinaryOp<mlir::chlo::BroadcastAddOp>(
+//            builder, loc, output, *bias, GetMlirTensorElemType(output));
+//    }
+//    ctx.value_map[node.output()] = output;
+//    return true;
+//  }
 
   // x*w^T
   auto out = BuildDotProduct_mm(builder, loc, input, transposed_weight);

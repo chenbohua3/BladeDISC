@@ -56,7 +56,7 @@ def _process_aten_fake_quant(c_module):
         # https://github.com/pytorch/pytorch/issues/81460
         _jit_pass_add_placeholder_for_fake_quant(c_module)
     elif backend == _DISC_NAME:
-        _jit_replace_aten_fake_quant_with_custom_version(c_module)
+        # _jit_replace_aten_fake_quant_with_custom_version(c_module)
         # to avoid torch_blade::fake_quant be folded
         _jit_pass_add_placeholder_for_fake_quant(c_module)
     else:

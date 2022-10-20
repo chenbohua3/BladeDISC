@@ -491,3 +491,11 @@ def DiscLowerQuantizeAndDequantizePass : Pass<"disc-lower-quantize-and-dequantiz
       "mhlo::MhloDialect",
   ];
 }
+
+def DiscFoldConstForFakeQuantOpPass : Pass<"disc-fold-const-for-fake-quant-op", "mlir::func::FuncOp"> {
+  let summary = "fold transpose & reshape for fake quant op";
+  let constructor = "createDiscFoldConstForFakeQuantOpPass()";
+  let dependentDialects = [
+      "disc_shape::DISCShapeDialect",
+  ];
+}

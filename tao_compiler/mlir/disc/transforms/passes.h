@@ -260,6 +260,9 @@ std::unique_ptr<OperationPass<func::FuncOp>> createDiscConvertFakeQuantOpPass();
 std::unique_ptr<OperationPass<func::FuncOp>>
 createDiscLowerQuantizeAndDequantizePass();
 
+std::unique_ptr<OperationPass<func::FuncOp>>
+createDiscFoldConstForFakeQuantOpPass();
+
 }  // namespace disc_ral
 }  // namespace mlir
 
